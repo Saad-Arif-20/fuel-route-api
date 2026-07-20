@@ -44,7 +44,6 @@
             top: 24px;
             left: 24px;
             width: 400px;
-            max-height: calc(100vh - 48px);
             background: var(--bg-glass);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
@@ -88,12 +87,11 @@
         }
 
         .scrollable-results {
-            flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
             margin-top: 16px;
             padding-right: 8px;
-            min-height: 0;
+            max-height: calc(100vh - 420px);
         }
 
         /* Custom Scrollbar for results */
@@ -164,7 +162,7 @@
             50% { opacity: 0.5; }
         }
 
-        .results { display: flex; flex-direction: column; flex: 1; min-height: 0; max-height: calc(100vh - 380px); }
+        .results { display: flex; flex-direction: column; }
         
         .stats { 
             background: rgba(0, 0, 0, 0.2); 
