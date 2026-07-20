@@ -35,7 +35,7 @@ class RouteAPITests(TestCase):
         mock_osrm.return_value = (600.0, {
             "coordinates": [[-100.0, 40.0], [-100.5, 40.5], [-101.0, 41.0]]
         })
-        response = self.client.get('/api/route/?start=A&finish=B')
+        response = self.client.get('/api/route/?start=Billings,MT&finish=Fargo,ND')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("gaps over 500 miles", response.data['error'])
 

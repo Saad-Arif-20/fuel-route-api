@@ -49,7 +49,7 @@ def main():
     unmatched_mask = df_fuel['Latitude'].isna()
     unmatched = df_fuel[unmatched_mask]
     
-    if len(unmatched) > 0:
+    if len(unmatched):
         print(f"Fast geocoding missed {len(unmatched)} rows. Falling back to ArcGIS...")
         unique_missing = unmatched[['City', 'State']].drop_duplicates()
         unique_missing['CityState'] = unique_missing['City'] + ", " + unique_missing['State']
@@ -77,8 +77,7 @@ def main():
     df_fuel.to_csv(out_path, index=False)
     
     final_matched = df_fuel['Latitude'].notna().sum()
-    print(f"Processing complete! Matched {final_matched} out of {len(df_fuel)} stations.")
-    print(f"Saved to {out_path}")
+    print(f"Geocoded {final_matched}/{len(df_fuel)} stations -> {out_path}")
 
 if __name__ == '__main__':
     main()

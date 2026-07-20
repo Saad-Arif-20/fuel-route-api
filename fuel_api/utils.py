@@ -34,7 +34,7 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2*R*math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 def find_optimal_fuel_stops(route_geometry, total_distance):
-    route_points = route_geometry['coordinates']  # [[lon, lat], ...]
+    route_points = route_geometry['coordinates']
 
     # Downsample to ~500 points before spatial indexing
     step = max(1, len(route_points) // 500)
@@ -66,8 +66,7 @@ def find_optimal_fuel_stops(route_geometry, total_distance):
         p1, p2 = downsampled[i-1], downsampled[i]
         cumulative_dists.append(cumulative_dists[-1] + haversine(p1[1], p1[0], p2[1], p2[0]))
 
-    # radius_deg=0.1 is a conservative upper bound (~7mi); exact distance confirmed via haversine below
-    radius_deg = 0.1
+    radius_deg = 0.1  # ~5mi filter in degree-space
     station_coords = np.array([[s.latitude, s.longitude] for s in stations_list])
     _, indices = tree.query(station_coords, distance_upper_bound=radius_deg)
 
@@ -106,7 +105,7 @@ def find_optimal_fuel_stops(route_geometry, total_distance):
             stops.append(best)
             total_cost = (total_distance / MPG) * best['price']
     else:
-        # Price the first leg using the cheapest station within 20mi of the start
+        # use cheapest nearby station to price the first leg from the start
         nearby_start = [s for s in valid_stations if s['dist_along_route'] <= 20]
         first_price = min(nearby_start, key=lambda x: x['price'])['price'] if nearby_start else stops[0]['price']
 

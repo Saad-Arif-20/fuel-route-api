@@ -40,7 +40,7 @@ This project provides an API and a frontend interface to calculate an optimal dr
    ```
 
 5. **Test the Application:**
-   Open `frontend/index.html` in your web browser. Type in your start and finish locations and click "Plan Route". It will make a request to the Django API and draw the route on the map!
+   Open `frontend/index.html` in your browser, enter start and finish locations, and click "Plan Route".
 
 ## Testing the API in Postman
 You can test the API directly using a GET request:
