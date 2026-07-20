@@ -280,7 +280,7 @@
         }
         .dp-close:hover { background: rgba(0,0,0,0.8); transform: scale(1.1); }
         .dp-image {
-            height: 180px; background: url('https://images.unsplash.com/photo-1542361345-89ce1dd9141c?auto=format&fit=crop&w=800&q=80') center/cover;
+            height: 180px; background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Truck_stop_on_I-80_in_Iowa.jpg/800px-Truck_stop_on_I-80_in_Iowa.jpg') center/cover;
             flex-shrink: 0; position: relative;
         }
         .dp-image::after {
@@ -355,10 +355,9 @@
                 </div>
                 
                 <div class="dp-actions">
-                    <div class="dp-action"><i class="fas fa-directions"></i> Directions</div>
-                    <div class="dp-action"><i class="fas fa-bookmark"></i> Save</div>
-                    <div class="dp-action"><i class="fas fa-share-alt"></i> Share</div>
-                    <div class="dp-action"><i class="fas fa-mobile-alt"></i> Send</div>
+                    <div class="dp-action" id="btn-directions"><i class="fas fa-directions"></i> Directions</div>
+                    <div class="dp-action" id="btn-save"><i class="far fa-bookmark"></i> Save</div>
+                    <div class="dp-action" id="btn-share"><i class="fas fa-share-alt"></i> Share</div>
                 </div>
                 
                 <div class="dp-info-row">
@@ -387,6 +386,23 @@
             document.getElementById('dpName').innerText = stop.name;
             document.getElementById('dpAddress').innerText = `${stop.city}, ${stop.state}`;
             document.getElementById('dpPrice').innerText = `$${stop.price.toFixed(2)}`;
+            
+            document.getElementById('btn-directions').onclick = () => window.open(`https://www.google.com/maps/dir/?api=1&destination=${stop.latitude},${stop.longitude}`, '_blank');
+            document.getElementById('btn-share').onclick = () => {
+                navigator.clipboard.writeText(`https://www.google.com/maps/search/?api=1&query=${stop.latitude},${stop.longitude}`);
+                alert("Google Maps link copied to clipboard!");
+            };
+            document.getElementById('btn-save').onclick = function() {
+                const icon = this.querySelector('i');
+                if (icon.classList.contains('far')) {
+                    icon.classList.replace('far', 'fas');
+                    icon.style.color = 'var(--primary)';
+                } else {
+                    icon.classList.replace('fas', 'far');
+                    icon.style.color = '';
+                }
+            };
+            
             document.getElementById('detailPanel').classList.add('open');
         }
         function closeDetailPanel() {
