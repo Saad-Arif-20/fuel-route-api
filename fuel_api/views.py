@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+import concurrent.futures
 from .utils import geocode_address, get_osrm_route, find_optimal_fuel_stops
 from .serializers import RouteResponseSerializer
 
@@ -19,11 +20,14 @@ class RouteAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
             
-        start_lat, start_lon = geocode_address(start)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_start = executor.submit(geocode_address, start)
+            future_finish = executor.submit(geocode_address, finish)
+            start_lat, start_lon = future_start.result()
+            finish_lat, finish_lon = future_finish.result()
+            
         if not start_lat or not start_lon:
             return Response({"error": f"Could not geocode start location: {start}"}, status=status.HTTP_400_BAD_REQUEST)
-            
-        finish_lat, finish_lon = geocode_address(finish)
         if not finish_lat or not finish_lon:
             return Response({"error": f"Could not geocode finish location: {finish}"}, status=status.HTTP_400_BAD_REQUEST)
             
