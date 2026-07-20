@@ -268,10 +268,11 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border-radius: 24px; z-index: 2000;
-            transform: translateX(-105%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0; pointer-events: none;
+            transform: translateX(-20px); transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex; flex-direction: column; overflow: hidden; box-shadow: 20px 0 50px rgba(0,0,0,0.5);
         }
-        .detail-panel.open { transform: translateX(0); }
+        .detail-panel.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
         .dp-close {
             position: absolute; top: 16px; right: 16px; width: 32px; height: 32px;
             border-radius: 50%; background: rgba(0,0,0,0.5); color: white;
