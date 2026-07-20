@@ -433,6 +433,55 @@
                     const finishMarker = L.marker(latLngs[latLngs.length - 1], {icon: finishIcon}).addTo(map).bindPopup('<b>Finish:</b> ' + data.finish_location);
                     markers.push(startMarker, finishMarker);
 
+                    // --- Distance Hover Logic ---
+                    function haversineMiles(lat1, lon1, lat2, lon2) {
+                        const R = 3958.8;
+                        const dLat = (lat2 - lat1) * Math.PI / 180;
+                        const dLon = (lon2 - lon1) * Math.PI / 180;
+                        const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)*Math.sin(dLon/2);
+                        return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    }
+                    
+                    let cumulativeDistances = [0];
+                    let totalCalc = 0;
+                    for (let i = 1; i < latLngs.length; i++) {
+                        totalCalc += haversineMiles(latLngs[i-1][0], latLngs[i-1][1], latLngs[i][0], latLngs[i][1]);
+                        cumulativeDistances.push(totalCalc);
+                    }
+                    
+                    const scaleFactor = data.total_distance_miles / (totalCalc || 1);
+                    cumulativeDistances = cumulativeDistances.map(d => d * scaleFactor);
+
+                    const hitArea = L.polyline(latLngs, { color: 'transparent', weight: 20, opacity: 0 }).addTo(map);
+                    markers.push(hitArea);
+
+                    let hoverPopup = L.popup({ closeButton: false, offset: [0, -5], autoPan: false, className: 'hover-popup' });
+
+                    hitArea.on('mousemove', function(e) {
+                        let minDist = Infinity;
+                        let closestIdx = 0;
+                        for(let i=0; i<latLngs.length; i++) {
+                            let d = Math.pow(latLngs[i][0] - e.latlng.lat, 2) + Math.pow(latLngs[i][1] - e.latlng.lng, 2);
+                            if (d < minDist) { minDist = d; closestIdx = i; }
+                        }
+                        
+                        const covered = cumulativeDistances[closestIdx];
+                        const remaining = data.total_distance_miles - covered;
+                        
+                        hoverPopup.setLatLng(e.latlng).setContent(`
+                            <div style="font-size: 13px; text-align: center; min-width: 120px;">
+                                <div style="color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Trip Progress</div>
+                                <div style="color: #60a5fa; font-weight: 600;">${covered.toFixed(1)} mi <span style="color: #cbd5e1; font-weight: normal;">covered</span></div>
+                                <div style="color: #10b981; font-weight: 600;">${remaining.toFixed(1)} mi <span style="color: #cbd5e1; font-weight: normal;">remaining</span></div>
+                            </div>
+                        `).openOn(map);
+                    });
+                    
+                    hitArea.on('mouseout', function() {
+                        map.closePopup(hoverPopup);
+                    });
+                    // ----------------------------
+
                     document.getElementById('totalDist').innerText = `${data.total_distance_miles} mi`;
                     document.getElementById('totalCost').innerText = `$${data.total_fuel_cost}`;
 
