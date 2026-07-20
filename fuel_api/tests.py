@@ -41,35 +41,9 @@ class RouteAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("gaps over 500 miles", response.data['error'])
 
-class OptimalFuelTests(TestCase):
-    def setUp(self):
-        # We need realistic coordinates for the stations to fall exactly on the route.
-        # Let's say Route is from (lon=-100, lat=40) to (lon=-100, lat=45)
-        # 1 degree lat is ~69 miles. 45-40 = 5 degrees = ~345 miles.
-        # Let's make a route of 1000 miles by stretching it.
-        # Let's mock haversine just for this test, or carefully place them.
-        pass
 
-    @patch('fuel_api.utils.haversine')
-    def test_cost_calculation_correctness(self, mock_haversine):
-        # We'll mock haversine to return exactly what we want to build the route precisely.
-        # route_points: p0, p1, p2
-        # distances: p0->p1 = 400 miles, p1->p2 = 600 miles (Total 1000)
-        route_geometry = {
-            "coordinates": [[-100.0, 40.0], [-100.0, 42.0], [-100.0, 45.0]]
-        }
-        
-        # We must return haversine distances in sequence.
-        # haversine is called for:
-        # 1. Precomputing downsampled route dists (p0->p1, p1->p2)
-        # 2. Calculating distance from station to nearest route point.
-        
-        # It's easier to use real coords. 
-        # (lat=40, lon=-100) to (lat=54.5, lon=-100) is about 1000 miles.
-        # 1 degree latitude = 69 miles.
-        # 1000 / 69 = 14.49 degrees.
-        pass
-        
+class OptimalFuelTests(TestCase):
+
     def test_real_cost_calculation(self):
         # Route: (40.0, -100.0) -> (45.0, -100.0) -> (50.0, -100.0) -> (54.5, -100.0)
         route_geometry = {

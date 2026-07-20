@@ -44,6 +44,8 @@ class RouteAPIView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
             
         response_data = {
+            "start_location": start,
+            "finish_location": finish,
             "route_geometry": route_geometry,
             "total_distance_miles": round(distance_miles, 2),
             "fuel_stops": fuel_stops,
