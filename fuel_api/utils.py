@@ -86,36 +86,48 @@ def find_optimal_fuel_stops(route_geometry, total_distance):
 
     MAX_RANGE = 500.0
     MPG = 10.0
+    
+    nearby_start = [s for s in valid_stations if s['dist_along_route'] <= 20]
+    start_price = min(nearby_start, key=lambda x: x['price'])['price'] if nearby_start else 3.0
+
+    nodes = [{'dist_along_route': 0.0, 'price': start_price, 'station': None}]
+    for s in valid_stations:
+        nodes.append({'dist_along_route': s['dist_along_route'], 'price': s['price'], 'station': s['station']})
+    nodes.append({'dist_along_route': total_distance, 'price': 0.0, 'station': None})
+
+    dp = [(float('inf'), -1)] * len(nodes)
+    dp[0] = (0.0, -1)
+
+    for i in range(1, len(nodes)):
+        for j in range(i - 1, -1, -1):
+            dist_leg = nodes[i]['dist_along_route'] - nodes[j]['dist_along_route']
+            if dist_leg > MAX_RANGE:
+                break
+            
+            # Cost = previous cost + fuel used * price at node j
+            cost = dp[j][0] + (dist_leg / MPG) * nodes[j]['price']
+            # Add a microscopic penalty ($0.0001) for each stop to break ties and minimize stops
+            cost += 0.0001 
+            
+            if cost < dp[i][0]:
+                dp[i] = (cost, j)
+
+    if dp[-1][0] == float('inf'):
+        raise ValueError("Route contains gaps over 500 miles without fuel stations. Unreachable.")
+
+    curr = len(nodes) - 1
+    path = []
+    while curr != -1:
+        path.append(curr)
+        curr = dp[curr][1]
+    
+    path.reverse()
+    
     stops = []
-    current_dist = 0.0
+    for idx in path[1:-1]:
+        stops.append(nodes[idx])
 
-    while current_dist + MAX_RANGE < total_distance:
-        reachable = [s for s in valid_stations if current_dist < s['dist_along_route'] <= current_dist + MAX_RANGE]
-        if not reachable:
-            raise ValueError(f"Route contains gaps over 500 miles without fuel stations (gap near mile {current_dist:.1f}). Unreachable.")
-        cheapest = min(reachable, key=lambda x: x['price'])
-        stops.append(cheapest)
-        current_dist = cheapest['dist_along_route']
-
-    total_cost = 0.0
-
-    if not stops:
-        if valid_stations:
-            best = min(valid_stations, key=lambda x: x['price'])
-            stops.append(best)
-            total_cost = (total_distance / MPG) * best['price']
-    else:
-        # use cheapest nearby station to price the first leg from the start
-        nearby_start = [s for s in valid_stations if s['dist_along_route'] <= 20]
-        first_price = min(nearby_start, key=lambda x: x['price'])['price'] if nearby_start else stops[0]['price']
-
-        all_stops = [{'dist_along_route': 0.0, 'price': first_price}] + stops
-        for i, stop in enumerate(all_stops):
-            if i + 1 < len(all_stops):
-                leg_dist = all_stops[i+1]['dist_along_route'] - stop['dist_along_route']
-            else:
-                leg_dist = total_distance - stop['dist_along_route']
-            total_cost += (leg_dist / MPG) * stop['price']
+    total_cost = dp[-1][0] - (len(path) - 1) * 0.0001
 
     formatted_stops = [
         {
