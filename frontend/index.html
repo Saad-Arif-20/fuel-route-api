@@ -443,7 +443,13 @@
                         // Fuel stop card in sidebar
                         const div = document.createElement('div');
                         div.className = 'stop-item';
-                        div.onclick = () => { map.setView([stop.latitude, stop.longitude], 13); marker.openPopup(); };
+                        div.onclick = () => { 
+                            map.panTo([stop.latitude, stop.longitude], { animate: true, duration: 0.8 });
+                            setTimeout(() => {
+                                map.setZoom(13, { animate: true });
+                                marker.openPopup();
+                            }, 800);
+                        };
                         div.innerHTML = `
                             <div class="stop-header">
                                 <div class="stop-name">${i+1}. ${stop.name}</div>
