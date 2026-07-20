@@ -54,8 +54,9 @@
             z-index: 1000;
             display: flex;
             flex-direction: column;
+            display: flex;
+            flex-direction: column;
             color: var(--text-main);
-            overflow: hidden;
         }
 
         .sidebar-header {
@@ -80,15 +81,24 @@
 
         .sidebar-content {
             padding: 24px;
-            overflow-y: auto;
             flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
-        /* Custom Scrollbar */
-        .sidebar-content::-webkit-scrollbar { width: 6px; }
-        .sidebar-content::-webkit-scrollbar-track { background: transparent; }
-        .sidebar-content::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
-        .sidebar-content::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+        .scrollable-results {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            margin-top: 16px;
+            padding-right: 8px; /* space for scrollbar */
+        }
+
+        /* Custom Scrollbar for results */
+        .scrollable-results::-webkit-scrollbar { width: 6px; }
+        .scrollable-results::-webkit-scrollbar-track { background: transparent; }
+        .scrollable-results::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        .scrollable-results::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
 
         .form-group { margin-bottom: 20px; position: relative; }
         label { display: block; font-weight: 500; margin-bottom: 8px; font-size: 0.875rem; color: #cbd5e1; }
@@ -152,7 +162,7 @@
             50% { opacity: 0.5; }
         }
 
-        .results { margin-top: 24px; }
+        .results { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
         
         .stats { 
             background: rgba(0, 0, 0, 0.2); 
@@ -276,18 +286,20 @@
             <div class="loading" id="loading">Routing & Optimizing Fuel...</div>
 
             <div class="results" id="results" style="display: none;">
-                <div class="stats">
-                    <div class="stat-item">
-                        <span class="stat-label">Total Distance</span>
-                        <span class="stat-value" id="totalDist"></span>
+                <div class="scrollable-results">
+                    <div class="stats">
+                        <div class="stat-item">
+                            <span class="stat-label">Total Distance</span>
+                            <span class="stat-value" id="totalDist"></span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Fuel Cost Estimate</span>
+                            <span class="stat-value cost-value" id="totalCost"></span>
+                        </div>
                     </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Fuel Cost Estimate</span>
-                        <span class="stat-value cost-value" id="totalCost"></span>
-                    </div>
+                    <h3>Recommended Stops</h3>
+                    <div id="stopsList"></div>
                 </div>
-                <h3>Recommended Stops</h3>
-                <div id="stopsList"></div>
             </div>
         </div>
     </div>
