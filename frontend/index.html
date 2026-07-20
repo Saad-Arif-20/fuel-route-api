@@ -8,6 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     <style>
         :root {
             --bg-glass: rgba(15, 23, 42, 0.75);
@@ -260,6 +262,45 @@
         }
         .leaflet-popup-tip { background: #1e293b; }
         .leaflet-popup-content b { color: #93c5fd; }
+        
+        /* Detail Panel */
+        .detail-panel {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px; z-index: 2000;
+            transform: translateX(-105%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column; overflow: hidden; box-shadow: 20px 0 50px rgba(0,0,0,0.5);
+        }
+        .detail-panel.open { transform: translateX(0); }
+        .dp-close {
+            position: absolute; top: 16px; right: 16px; width: 32px; height: 32px;
+            border-radius: 50%; background: rgba(0,0,0,0.5); color: white;
+            border: none; font-size: 18px; cursor: pointer; z-index: 10;
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .dp-close:hover { background: rgba(0,0,0,0.8); transform: scale(1.1); }
+        .dp-image {
+            height: 180px; background: url('https://images.unsplash.com/photo-1542361345-89ce1dd9141c?auto=format&fit=crop&w=800&q=80') center/cover;
+            flex-shrink: 0; position: relative;
+        }
+        .dp-image::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50%;
+            background: linear-gradient(to top, rgba(15,23,42,1), transparent);
+        }
+        .dp-body { padding: 24px; flex: 1; overflow-y: auto; overflow-x: hidden; }
+        .dp-body::-webkit-scrollbar { width: 6px; }
+        .dp-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        .dp-title { font-size: 1.5rem; font-weight: 700; margin: 0 0 8px 0; line-height: 1.2; color: #fff; }
+        .dp-subtitle { font-size: 0.875rem; color: var(--text-muted); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+        .dp-rating { color: #fbbf24; }
+        
+        .dp-actions { display: flex; justify-content: space-around; margin-bottom: 24px; border-bottom: 1px solid var(--border-glass); padding-bottom: 24px; }
+        .dp-action { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--primary); font-size: 0.875rem; font-weight: 500; cursor: pointer; }
+        .dp-action i { font-size: 1.2rem; width: 40px; height: 40px; border-radius: 50%; background: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .dp-action:hover i { background: var(--primary); color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
+        
+        .dp-info-row { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px; font-size: 0.95rem; line-height: 1.5; color: #cbd5e1; }
+        .dp-info-row i { color: var(--primary); font-size: 1.1rem; margin-top: 2px; width: 20px; text-align: center; }
     </style>
 </head>
 <body>
@@ -302,10 +343,56 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Detail Panel -->
+        <div class="detail-panel" id="detailPanel">
+            <button class="dp-close" onclick="closeDetailPanel()"><i class="fas fa-times"></i></button>
+            <div class="dp-image"></div>
+            <div class="dp-body">
+                <h2 class="dp-title" id="dpName">Station Name</h2>
+                <div class="dp-subtitle">
+                    <span class="dp-rating">4.8 <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i></span> (1,204) • Commercial Truck Stop
+                </div>
+                
+                <div class="dp-actions">
+                    <div class="dp-action"><i class="fas fa-directions"></i> Directions</div>
+                    <div class="dp-action"><i class="fas fa-bookmark"></i> Save</div>
+                    <div class="dp-action"><i class="fas fa-share-alt"></i> Share</div>
+                    <div class="dp-action"><i class="fas fa-mobile-alt"></i> Send</div>
+                </div>
+                
+                <div class="dp-info-row">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span id="dpAddress">Address, City, State</span>
+                </div>
+                <div class="dp-info-row">
+                    <i class="fas fa-tag"></i>
+                    <span><span id="dpPrice" style="color:var(--accent);font-weight:700;font-size:1.1rem;">$2.80</span> per gallon</span>
+                </div>
+                <div class="dp-info-row">
+                    <i class="fas fa-clock"></i>
+                    <span style="color:var(--accent);">Open 24 hours</span>
+                </div>
+                <div class="dp-info-row">
+                    <i class="fas fa-truck"></i>
+                    <span>Diesel exhaust fluid (DEF), scales, showers, and overnight parking available.</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        function openDetailPanel(stop) {
+            document.getElementById('dpName').innerText = stop.name;
+            document.getElementById('dpAddress').innerText = `${stop.city}, ${stop.state}`;
+            document.getElementById('dpPrice').innerText = `$${stop.price.toFixed(2)}`;
+            document.getElementById('detailPanel').classList.add('open');
+        }
+        function closeDetailPanel() {
+            document.getElementById('detailPanel').classList.remove('open');
+        }
+
         // Use a dark-mode optimized map tile layer (Carto Dark Matter)
         const map = L.map('map', { zoomControl: false }).setView([39.8283, -98.5795], 5);
         
@@ -501,6 +588,7 @@
                         `);
                         marker.on('mouseover', function() { this.openPopup(); });
                         marker.on('mouseout', function() { this.closePopup(); });
+                        marker.on('click', function() { openDetailPanel(stop); });
                         markers.push(marker);
 
                         // Fuel stop card in sidebar
@@ -510,8 +598,8 @@
                             map.panTo([stop.latitude, stop.longitude], { animate: true, duration: 0.8 });
                             setTimeout(() => {
                                 map.setZoom(13, { animate: true });
-                                marker.openPopup();
                             }, 800);
+                            openDetailPanel(stop);
                         };
                         div.innerHTML = `
                             <div class="stop-header">
