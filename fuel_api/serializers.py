@@ -13,7 +13,7 @@ class FuelStopSerializer(serializers.Serializer):
 class RouteResponseSerializer(serializers.Serializer):
     start_location = serializers.CharField()
     finish_location = serializers.CharField()
-    route_geometry = serializers.DictField(help_text="GeoJSON LineString coordinates")
+    route_geometry = serializers.DictField()
     total_distance_miles = serializers.FloatField()
     fuel_stops = FuelStopSerializer(many=True)
     total_fuel_cost = serializers.FloatField()
