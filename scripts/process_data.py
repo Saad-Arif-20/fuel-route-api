@@ -26,7 +26,6 @@ def main():
     df_cities['CITY'] = df_cities['CITY'].str.upper()
     df_cities['STATE_CODE'] = df_cities['STATE_CODE'].str.upper()
     
-    # Average lat/long if a city appears in multiple counties
     df_cities = df_cities.groupby(['CITY', 'STATE_CODE']).agg({
         'LATITUDE': 'mean',
         'LONGITUDE': 'mean'
@@ -47,7 +46,6 @@ def main():
     df_fuel['Longitude'] = merged['LONGITUDE']
     df_fuel = df_fuel.drop(columns=['City_upper', 'State_upper'])
     
-    # Find unmatched stations
     unmatched_mask = df_fuel['Latitude'].isna()
     unmatched = df_fuel[unmatched_mask]
     

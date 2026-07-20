@@ -29,7 +29,7 @@ This project provides an API and a frontend interface to calculate an optimal dr
    ```
 
 3. **Load the Data:**
-   We have included a pre-geocoded version of the fuel prices CSV (`fuel_stations_geocoded.csv`). Load it into the database using the custom management command:
+   A pre-geocoded CSV (`data/fuel_stations_geocoded.csv`) is included. Load it into the database:
    ```bash
    python manage.py load_fuel_data
    ```

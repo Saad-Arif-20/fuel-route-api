@@ -5,7 +5,7 @@ from .utils import geocode_address, get_osrm_route, find_optimal_fuel_stops
 from .serializers import RouteResponseSerializer
 
 def is_in_us(lat, lon):
-    # Very rough US bounding box including Alaska/Hawaii roughly
+    # Rough US bounding box
     return (24.0 <= lat <= 71.0) and (-171.0 <= lon <= -66.0)
 
 class RouteAPIView(APIView):

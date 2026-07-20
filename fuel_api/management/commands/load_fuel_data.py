@@ -11,12 +11,10 @@ class Command(BaseCommand):
         csv_path = os.path.join(settings.BASE_DIR, 'data', 'fuel_stations_geocoded.csv')
         try:
             df = pd.read_csv(csv_path)
-            # Fill NaNs with None for DB insertion
             df = df.where(pd.notnull(df), None)
             
             stations_to_create = []
             for _, row in df.iterrows():
-                # Handle possible invalid prices or other data
                 try:
                     price = float(row['Retail Price'])
                 except (ValueError, TypeError):
