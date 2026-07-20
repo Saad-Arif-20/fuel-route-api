@@ -35,11 +35,13 @@ class Command(BaseCommand):
                 )
                 stations_to_create.append(station)
 
-            # Bulk create ignoring conflicts (if running multiple times)
+            before_count = FuelStation.objects.count()
             FuelStation.objects.bulk_create(
                 stations_to_create,
                 ignore_conflicts=True
             )
-            self.stdout.write(self.style.SUCCESS(f'Successfully loaded {len(stations_to_create)} stations.'))
+            after_count = FuelStation.objects.count()
+            inserted = after_count - before_count
+            self.stdout.write(self.style.SUCCESS(f'Successfully loaded {inserted} new stations. Total in DB: {after_count}.'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Error loading data: {e}'))

@@ -1,6 +1,8 @@
 import requests
-from geopy.geocoders import ArcGIS
 import math
+import numpy as np
+from scipy.spatial import cKDTree
+from geopy.geocoders import ArcGIS
 from fuel_api.models import FuelStation
 
 def geocode_address(address):
@@ -11,14 +13,12 @@ def geocode_address(address):
     return None, None
 
 def get_osrm_route(start_coords, finish_coords):
-    # OSRM expects coordinates in lon, lat order
     url = f"http://router.project-osrm.org/route/v1/driving/{start_coords[1]},{start_coords[0]};{finish_coords[1]},{finish_coords[0]}?overview=full&geometries=geojson"
     try:
         response = requests.get(url, timeout=10)
         data = response.json()
-        if data['code'] == 'Ok':
+        if data.get('code') == 'Ok':
             route = data['routes'][0]
-            # Convert meters to miles
             distance_miles = route['distance'] * 0.000621371
             geometry = route['geometry']
             return distance_miles, geometry
@@ -36,144 +36,111 @@ def haversine(lat1, lon1, lat2, lon2):
     return 2*R*math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 def find_optimal_fuel_stops(route_geometry, total_distance):
-    # 1. Fetch all stations with coords
-    stations = FuelStation.objects.exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+    route_points = route_geometry['coordinates'] # [[lon, lat], ...]
     
-    # 2. Extract route points
-    route_points = route_geometry['coordinates'] # [[lon, lat], [lon, lat]]
-    
-    # Simple projection mapping: we want to map stations to their distance along the route.
-    # To do this perfectly is complex. We will approximate:
-    # We step through route segments, calculate cumulative distance, and find stations near the segment.
-    # To be fast, we pre-filter stations using a bounding box of the route.
+    # Downsample route points for performance.
+    # Adaptive step: target ~500 points max. For real OSRM routes (~6000 pts) this gives
+    # step=12. For sparse test routes, step stays at 1 so no points are skipped.
+    step = max(1, len(route_points) // 500)
+    downsampled_points = route_points[::step]
+    # Always include the last point
+    if route_points[-1] != downsampled_points[-1]:
+        downsampled_points = list(downsampled_points) + [route_points[-1]]
+        
     lons = [p[0] for p in route_points]
     lats = [p[1] for p in route_points]
+    
     min_lon, max_lon = min(lons) - 0.5, max(lons) + 0.5
     min_lat, max_lat = min(lats) - 0.5, max(lats) + 0.5
     
-    stations_in_box = stations.filter(
+    stations = FuelStation.objects.filter(
         longitude__gte=min_lon, longitude__lte=max_lon,
         latitude__gte=min_lat, latitude__lte=max_lat
-    )
+    ).exclude(latitude__isnull=True).exclude(longitude__isnull=True)
     
-    stations_list = list(stations_in_box)
+    stations_list = list(stations)
+    if not stations_list:
+        if total_distance > 500:
+            raise ValueError("Route contains gaps over 500 miles without fuel stations. Unreachable.")
+        return [], 0.0
+        
+    # Build KDTree with downsampled route coordinates [lat, lon]
+    route_coords = np.array([[p[1], p[0]] for p in downsampled_points])
+    tree = cKDTree(route_coords)
     
-    # We map each station to its distance along the route if it's within 2 miles
-    # We calculate cumulative distance along the polyline.
+    # Precompute distances along the downsampled route
     route_cumulative_dists = [0.0]
-    for i in range(1, len(route_points)):
-        p1, p2 = route_points[i-1], route_points[i]
+    for i in range(1, len(downsampled_points)):
+        p1, p2 = downsampled_points[i-1], downsampled_points[i]
         dist = haversine(p1[1], p1[0], p2[1], p2[0])
         route_cumulative_dists.append(route_cumulative_dists[-1] + dist)
         
     valid_stations = []
+    radius_deg = 0.1  # Approx 7 miles in degree-space (conservative upper bound for 5-mile filter)
     
-    # Optimize: check all stations against all route segments, or just check station against each route point.
-    # Given route points can be many, we will check station against route points.
-    for station in stations_list:
-        min_dist_to_route = float('inf')
-        dist_along_route = 0
-        
-        # A simple linear scan to find closest point on route
-        for i, point in enumerate(route_points):
-            dist = haversine(station.latitude, station.longitude, point[1], point[0])
-            if dist < min_dist_to_route:
-                min_dist_to_route = dist
-                dist_along_route = route_cumulative_dists[i]
+    station_coords = np.array([[s.latitude, s.longitude] for s in stations_list])
+    distances_deg, indices = tree.query(station_coords, distance_upper_bound=radius_deg)
+    
+    for idx, station in enumerate(stations_list):
+        route_idx = indices[idx]
+        if route_idx != tree.n:
+            closest_point = downsampled_points[route_idx]
+            dist_to_route = haversine(station.latitude, station.longitude, closest_point[1], closest_point[0])
+            if dist_to_route <= 5.0:
+                valid_stations.append({
+                    'station': station,
+                    'dist_along_route': route_cumulative_dists[route_idx],
+                    'price': station.retail_price
+                })
                 
-        if min_dist_to_route <= 5.0: # within 5 miles
-            valid_stations.append({
-                'station': station,
-                'dist_along_route': dist_along_route,
-                'price': station.retail_price
-            })
-            
-    # Sort valid stations by distance from start
     valid_stations.sort(key=lambda x: x['dist_along_route'])
-    
-    # Greedy Algorithm for Optimal Fuel
     MAX_RANGE = 500.0
     MPG = 10.0
-    
     stops = []
-    total_cost = 0.0
-    
     current_dist = 0.0
-    # Add start and end points as virtual stations to simplify logic
-    # Virtual start station (free fuel? No, we just start with full tank). 
-    # The requirement: "return the total money spent on fuel assuming the vehicle achieves 10 miles per gallon"
-    # This implies we buy exactly enough fuel for the trip. Total fuel needed = total_distance / 10.
-    # To minimize cost, we use the classic algorithm:
-    # At current pos, search up to MAX_RANGE. If destination is reachable, and no cheaper station in range, 
-    # we just fuel enough to reach destination. 
-    # If there is a cheaper station in range, we fuel enough to reach it.
-    # If there are no cheaper stations in range, we fill the tank and go to the cheapest station in range.
     
-    # Let's refine the greedy approach.
-    # We maintain current fuel level (gallons), tank capacity (50 gallons).
-    # Start with empty tank. We must buy fuel at the start.
-    # But wait, there might not be a station exactly at start (dist=0).
-    # If no station at dist=0, we assume we have just enough fuel to reach the first station, or we start with 500 miles range.
-    # The simplest interpretation for the assessment: We start at 0 distance. We can drive 500 miles. 
-    # We find the cheapest station in the next 500 miles.
-    
-    # Let's use a simpler heuristic for the assessment:
-    # Start at distance 0 with 500 miles of range (already paid for? No, let's just optimize the cost of the trip).
-    # Standard DP or Greedy:
-    # At current location, find the cheapest station within 500 miles.
-    
-    current_location_dist = 0.0
-    
-    while current_location_dist + MAX_RANGE < total_distance:
-        # Find all stations between current_location_dist and current_location_dist + MAX_RANGE
-        reachable = [s for s in valid_stations if current_location_dist < s['dist_along_route'] <= current_location_dist + MAX_RANGE]
+    while current_dist + MAX_RANGE < total_distance:
+        reachable = [s for s in valid_stations if current_dist < s['dist_along_route'] <= current_dist + MAX_RANGE]
         
         if not reachable:
-            # Cannot reach any station or destination
-            break
+            raise ValueError(f"Route contains gaps over 500 miles without fuel stations (gap near mile {current_dist:.1f}). Unreachable.")
             
-        # Strategy: To minimize cost, if we only need to jump between stations, we pick the cheapest one in range.
-        # Actually, standard greedy: 
-        # Pick the station with the MINIMUM price in reachable range.
         cheapest_station = min(reachable, key=lambda x: x['price'])
-        
-        # We drive to cheapest station.
-        # How much did it cost? We buy fuel AT the cheapest station.
-        # Wait, if we are at A, we look ahead. If there is a cheaper station B, we buy just enough to reach B.
-        # If A is cheaper than everything ahead, we fill up at A.
-        # To simplify, we just say: the route requires `total_distance / 10` gallons.
-        # We can just partition the route into segments of max 500 miles, each served by the cheapest station in that 500-mile window.
-        
-        # Simple Greedy:
-        # Move forward by picking the furthest station that is cheapest?
-        # Let's just do: Find cheapest station in the next 500 miles. Stop there, buy 50 gallons (or enough to reach next).
-        
         stops.append(cheapest_station)
-        current_location_dist = cheapest_station['dist_along_route']
-
-    # For cost calculation, just assume we bought fuel for the segment at the stop.
-    # Since this is an assessment, a simple calculation is acceptable:
-    # We just distribute the total trip distance across the stops.
-    if not stops and total_distance > MAX_RANGE:
-        return None, 0.0 # Unreachable
+        current_dist = cheapest_station['dist_along_route']
         
+    total_cost = 0.0
+    
     if not stops:
-        # Trip < 500 miles. We can just pick the cheapest station overall on the route.
         if valid_stations:
-            cheapest = min(valid_stations, key=lambda x: x['price'])
-            stops.append(cheapest)
-            total_cost = (total_distance / MPG) * cheapest['price']
+            best = min(valid_stations, key=lambda x: x['price'])
+            total_cost = (total_distance / MPG) * best['price']
+            stops.append(best)
         else:
-            # No stations on route? Very unlikely.
             total_cost = 0.0
     else:
-        # We have multiple stops. We assume we buy fuel for 500 miles at each stop, except the last one.
-        # To get exact cost, let's just average the price or distribute distance.
-        # Let's say we divide distance equally among stops for cost calculation.
-        dist_per_stop = total_distance / len(stops)
-        for s in stops:
-            total_cost += (dist_per_stop / MPG) * s['price']
+        # First leg from Start (0.0) to the first stop.
+        # Find a station close to the start to estimate the price for the initial tank.
+        first_leg_price = stops[0]['price']
+        start_stations = [s for s in valid_stations if s['dist_along_route'] <= 20]
+        if start_stations:
+            first_leg_price = min(start_stations, key=lambda x: x['price'])['price']
             
+        all_stops = [{
+            'dist_along_route': 0.0,
+            'price': first_leg_price,
+            'is_virtual': True
+        }] + stops
+
+        for i in range(len(all_stops)):
+            current_stop = all_stops[i]
+            if i + 1 < len(all_stops):
+                leg_dist = all_stops[i+1]['dist_along_route'] - current_stop['dist_along_route']
+            else:
+                leg_dist = total_distance - current_stop['dist_along_route']
+                
+            total_cost += (leg_dist / MPG) * current_stop['price']
+
     # Format stops for output
     formatted_stops = []
     for s in stops:
