@@ -92,21 +92,17 @@
             markers.forEach(m => map.removeLayer(m));
             markers = [];
 
-            try {
-                // Assuming Django is running on port 8000 locally
+                try {
                 const response = await fetch(`http://127.0.0.1:8000/api/route/?start=${encodeURIComponent(start)}&finish=${encodeURIComponent(finish)}`);
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Draw Route
-                    // OSRM coordinates are [lon, lat], Leaflet needs [lat, lon]
                     const latLngs = data.route_geometry.coordinates.map(coord => [coord[1], coord[0]]);
                     currentRoute = L.polyline(latLngs, {color: '#3498db', weight: 5, opacity: 0.8}).addTo(map);
                     map.fitBounds(currentRoute.getBounds());
 
-                    // Start & Finish Markers
-                    const startMarker = L.marker(latLngs[0]).addTo(map).bindPopup("<b>Start:</b> " + data.start_location);
-                    const finishMarker = L.marker(latLngs[latLngs.length - 1]).addTo(map).bindPopup("<b>Finish:</b> " + data.finish_location);
+                    const startMarker = L.marker(latLngs[0]).addTo(map).bindPopup('<b>Start:</b> ' + data.start_location);
+                    const finishMarker = L.marker(latLngs[latLngs.length - 1]).addTo(map).bindPopup('<b>Finish:</b> ' + data.finish_location);
                     markers.push(startMarker, finishMarker);
 
                     // Update UI
@@ -118,24 +114,23 @@
                     stopsContainer.innerHTML = '';
                     
                     data.fuel_stops.forEach((stop, i) => {
-                        // Marker
+                        const price = stop.price.toFixed(2);
                         const marker = L.circleMarker([stop.latitude, stop.longitude], {
                             color: '#c0392b', fillColor: '#e74c3c', fillOpacity: 1, radius: 8
                         }).addTo(map).bindPopup(`
                             <b>${stop.name}</b><br>
-                            $${stop.price} / gal<br>
+                            $${price} / gal<br>
                             ${stop.city}, ${stop.state}
                         `);
                         markers.push(marker);
 
-                        // List Item
                         const div = document.createElement('div');
                         div.className = 'stop-item';
                         div.innerHTML = `
                             <div class="stop-name">${i+1}. ${stop.name}</div>
                             <div style="font-size: 0.9rem; color: #7f8c8d;">${stop.city}, ${stop.state}</div>
                             <div style="font-size: 0.9rem; margin-bottom: 0.5rem;">Dist: ${stop.distance_along_route} mi</div>
-                            <div class="stop-price">$${stop.price}</div>
+                            <div class="stop-price">$${price}</div>
                         `;
                         stopsContainer.appendChild(div);
                     });
