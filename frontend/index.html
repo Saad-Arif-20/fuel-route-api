@@ -499,6 +499,8 @@
                             <span style="color:#10b981;font-weight:bold;font-size:1.1em;">$${price}</span> / gal<br>
                             ${stop.city}, ${stop.state}
                         `);
+                        marker.on('mouseover', function() { this.openPopup(); });
+                        marker.on('mouseout', function() { this.closePopup(); });
                         markers.push(marker);
 
                         // Fuel stop card in sidebar
